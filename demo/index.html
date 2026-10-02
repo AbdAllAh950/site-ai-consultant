@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Зелёный контур — ландшафтное бюро в Петербурге (демо)</title>
+  <meta name="description" content="Демо-сайт с AI-консультантом: ландшафтный дизайн, газон, автополив и дренаж в Петербурге и Ленобласти. Компания вымышлена.">
+  <meta name="robots" content="noindex">
+  <link rel="preload" href="assets/fonts/unbounded-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/golos-text-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%231f4a3a'/%3E%3Cpath d='M8 26c6-10 18-12 24-6M10 31c7-7 16-8 21-4M13 20c5-7 12-8 16-5' fill='none' stroke='%23c9d3a0' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <!-- The whole AI consultant is this one line. On Tilda: Site settings → Вставка кода → HTML-код для вставки внутрь head. -->
+  <script src="/widget.js" data-site="zeleny-kontur" defer></script>
+</head>
+<body>
+  <div class="ribbon">
+    <div class="wrap">
+      <span>Это демо-сайт: компания, цены и контакты вымышлены. Попробуйте AI-консультанта — он отвечает на вопросы и принимает заявки.</span>
+      <button type="button" data-open-chat>Открыть чат</button>
+    </div>
+  </div>
+
+  <header class="top">
+    <div class="wrap">
+      <a class="logo" href="#top" aria-label="Зелёный контур — на главную">
+        <svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="8" fill="#1f4a3a"/><path d="M8 26c6-10 18-12 24-6M10 31c7-7 16-8 21-4M13 20c5-7 12-8 16-5" fill="none" stroke="#c9d3a0" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <b>Зелёный контур</b>
+      </a>
+      <nav class="menu" aria-label="Разделы">
+        <a href="#prices">Цены</a>
+        <a href="#projects">Проекты</a>
+        <a href="#process">Как работаем</a>
+        <a href="#contacts">Контакты</a>
+      </nav>
+      <a class="phone" href="tel:+78120000000">+7 (812) 000-00-00</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap">
+        <div>
+          <h1>Сады для петербургского климата</h1>
+          <p class="lead">Проектируем и благоустраиваем участки в Петербурге и Ленобласти: газон, автополив, дренаж, дорожки и растения, которые переживают нашу зиму.</p>
+          <div class="actions">
+            <button class="btn" type="button" data-open-chat>Рассчитать мой участок</button>
+            <a class="btn ghost" href="#prices">Смотреть цены</a>
+          </div>
+          <ul class="facts">
+            <li>140 участков с 2016 года</li>
+            <li>Выезд и замер бесплатно до 50 км от КАД</li>
+            <li>Гарантия на растения — год, на мощение — три</li>
+          </ul>
+        </div>
+        <figure class="drawing">
+          <img src="assets/plan-hero.svg" width="640" height="600" alt="Генплан участка 10 соток: газон, пруд, живая изгородь, сосны, дорожки к дому">
+          <figcaption class="stamp"><span>Генплан участка во Всеволожском районе</span><span>М 1:200</span><span>Лист 1</span></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="block" id="prices">
+      <div class="wrap">
+        <div class="head">
+          <h2>Цены</h2>
+          <p>Цены «от» на 2026 год. Точную смету считаем после бесплатного выезда на участок.</p>
+        </div>
+        <div class="prices">
+          <dl>
+            <div class="row"><dt>Выезд и замер</dt><dd>Смотрим грунт, воду и освещённость, обсуждаем пожелания</dd><dd class="price">бесплатно</dd></div>
+            <div class="row"><dt>Эскиз-концепция</dt><dd>Планировка зон и стиль сада, готов за 7 дней</dd><dd class="price">от 15 000 ₽</dd></div>
+            <div class="row"><dt>Дизайн-проект</dt><dd>Генплан, дендроплан, разбивочный чертёж, 3D</dd><dd class="price">от 2 500 ₽/сотка</dd></div>
+            <div class="row"><dt>Рулонный газон</dt><dd>Подготовка основания, грунт, укладка, первый полив</dd><dd class="price">от 590 ₽/м²</dd></div>
+            <div class="row"><dt>Автополив</dt><dd>С контроллером и датчиком дождя, участок до 6 соток</dd><dd class="price">от 85 000 ₽</dd></div>
+            <div class="row"><dt>Дренаж</dt><dd>Если весной и после дождя на участке стоит вода</dd><dd class="price">от 1 800 ₽/пог. м</dd></div>
+            <div class="row"><dt>Мощение плиткой</dt><dd>С основанием из щебня и песка, гарантия 3 года</dd><dd class="price">от 3 200 ₽/м²</dd></div>
+            <div class="row"><dt>Уход за садом</dt><dd>С апреля по октябрь, участок до 10 соток</dd><dd class="price">от 12 000 ₽/мес</dd></div>
+          </dl>
+          <div class="ask">
+            <p>Не нашли свой случай? Консультант подскажет цену и сроки за минуту.</p>
+            <button class="btn ghost" type="button" data-open-chat>Спросить консультанта</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="projects">
+      <div class="wrap">
+        <div class="head">
+          <h2>Проекты</h2>
+          <p>Три участка из 140. Подборку под ваш участок пришлёт менеджер.</p>
+        </div>
+        <div class="projects">
+          <figure>
+            <img src="assets/plan-komarovo.svg" width="360" height="260" alt="План лесного сада: сосны, дом, гравийная дорожка">
+            <figcaption><h3>Лесной сад в Комарово</h3><p>12 соток. Сохранили сосны, проложили гравийные дорожки, сделали тенистые клумбы.</p></figcaption>
+          </figure>
+          <figure>
+            <img src="assets/plan-vsevolozhsk.svg" width="360" height="260" alt="План участка: газон с зонами полива и живая изгородь">
+            <figcaption><h3>Участок во Всеволожске</h3><p>8 соток. Рулонный газон, автополив на 12 зон, живая изгородь из туи.</p></figcaption>
+          </figure>
+          <figure>
+            <img src="assets/plan-murino.svg" width="360" height="260" alt="План двора таунхауса: мощение, газон, фонари">
+            <figcaption><h3>Двор таунхауса в Мурино</h3><p>2 сотки. Мощение, газон и садовое освещение вдоль дорожки.</p></figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="process">
+      <div class="wrap">
+        <div class="head">
+          <h2>Как работаем</h2>
+          <p>Участок 10 соток под ключ — обычно 3–6 недель после согласования проекта.</p>
+        </div>
+        <ol class="steps">
+          <li><h3>Выезд и замер</h3><p>Бесплатно до 50 км от КАД, около часа на участке.</p></li>
+          <li><h3>Эскиз и смета</h3><p>Планировка зон, растения, фиксированная смета.</p></li>
+          <li><h3>Договор</h3><p>Аванс 30% на материалы, дальше оплата по этапам.</p></li>
+          <li><h3>Работы</h3><p>Газон, полив, дорожки, посадки — бригада из Петербурга.</p></li>
+          <li><h3>Уход и гарантия</h3><p>Год гарантии на растения, абонемент ухода по желанию.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="night">
+      <div class="wrap">
+        <div>
+          <h2>Вопрос в 23:40? Консультант ответит сразу</h2>
+          <p>Он знает цены, сроки и условия «Зелёного контура». Если нужен расчёт для вашего участка, примет заявку, и утром вам позвонит менеджер.</p>
+        </div>
+        <button class="btn" type="button" data-open-chat>Задать вопрос</button>
+      </div>
+    </section>
+  </main>
+
+  <footer id="contacts">
+    <div class="wrap">
+      <div><b>Зелёный контур</b><br>Санкт-Петербург, Приморский район, встречи по записи</div>
+      <div>Пн–сб 9:00–20:00<br><a href="tel:+78120000000">+7 (812) 000-00-00</a></div>
+      <div>Демо-проект: компания, цены и контакты вымышлены.<br><a href="privacy.html">Политика конфиденциальности</a></div>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll("[data-open-chat]").forEach(function (b) {
+      b.addEventListener("click", function () { if (window.AIConsultant) window.AIConsultant.open(); });
+    });
+  </script>
+</body>
+</html>

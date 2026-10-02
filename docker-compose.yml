@@ -1,0 +1,23 @@
+# Server + automatic HTTPS (Caddy, Let's Encrypt).
+#   cp .env.example .env    # keys and DOMAIN
+#   docker compose up -d --build
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./sites:/srv/sites:ro      # edit knowledge bases without rebuilding — changes apply on the next message
+      - data:/data
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+volumes:
+  data:
+  caddy_data:

@@ -1,0 +1,73 @@
+{
+  "name": "Зелёный контур",
+  "about": "Ландшафтное бюро в Санкт-Петербурге: проекты, газон, автополив, дренаж, мощение, посадки и уход за садом.",
+  "telegram_chat_id": "",
+  "webhook_url": "",
+  "allowed_origins": [],
+  "qualify": ["что хотят сделать на участке", "площадь участка в сотках", "где находится участок", "когда хотят начать"],
+  "widget": {
+    "title": "Зелёный контур",
+    "avatar": "ЗК",
+    "accent": "#2f6b4f",
+    "position": "right",
+    "subtitle": {
+      "ru": "AI-консультант · отвечает сразу",
+      "en": "AI assistant · replies instantly",
+      "ar": "مساعد ذكي · يرد فورًا"
+    },
+    "greeting": {
+      "ru": "Здравствуйте! Я AI-консультант «Зелёного контура». Подскажу по ценам, срокам и работам на вашем участке. Что планируете?",
+      "en": "Hello! I'm the AI assistant of Zeleny Kontur, a landscape studio in Saint Petersburg. Ask me about prices, timelines or your garden plans.",
+      "ar": "مرحبًا! أنا المساعد الذكي لاستوديو «زيليوني كونتور» لتنسيق الحدائق في سانت بطرسبرغ. اسألني عن الأسعار والمدة وخطط حديقتك."
+    },
+    "teaser": {
+      "ru": "Подсказать, сколько стоит благоустроить ваш участок?",
+      "en": "Want to know what your garden project would cost?",
+      "ar": "هل تريد معرفة تكلفة تنسيق حديقتك؟"
+    },
+    "quick_replies": {
+      "ru": ["Сколько стоит газон?", "Нужен дизайн-проект", "Сроки работ", "Рассчитать мой участок"],
+      "en": ["How much is a lawn?", "I need a garden design", "How long does it take?", "Get a quote for my plot"],
+      "ar": ["كم تكلفة العشب؟", "أحتاج تصميمًا للحديقة", "كم يستغرق العمل؟", "احسب تكلفة أرضي"]
+    },
+    "placeholder": {
+      "ru": "Напишите вопрос…",
+      "en": "Type your question…",
+      "ar": "اكتب سؤالك…"
+    },
+    "lead_cta": {
+      "ru": "Оставить заявку менеджеру",
+      "en": "Request a call back",
+      "ar": "اطلب اتصالًا من المدير"
+    },
+    "lead_done": {
+      "ru": "Спасибо! Менеджер «Зелёного контура» свяжется с вами в течение 15 минут в рабочее время.",
+      "en": "Thank you! A Zeleny Kontur manager will contact you within 15 minutes during working hours.",
+      "ar": "شكرًا لك! سيتواصل معك مدير «زيليوني كونتور» خلال ١٥ دقيقة في أوقات العمل."
+    },
+    "privacy_url": "/demo/privacy.html",
+    "form": {
+      "ru": {
+        "title": "Оставьте контакты — менеджер перезвонит в течение 15 минут",
+        "name": "Имя", "phone": "Телефон", "comment": "Комментарий (необязательно)",
+        "consent": "Согласен(на) на обработку персональных данных", "privacy": "Политика конфиденциальности",
+        "submit": "Отправить", "error_name": "Укажите имя", "error_phone": "Проверьте номер телефона",
+        "error_consent": "Нужно согласие на обработку данных", "error_send": "Не получилось отправить. Позвоните нам: +7 (812) 000-00-00"
+      },
+      "en": {
+        "title": "Leave your contacts and a manager will call you within 15 minutes",
+        "name": "Name", "phone": "Phone", "comment": "Comment (optional)",
+        "consent": "I agree to the processing of my personal data", "privacy": "Privacy policy",
+        "submit": "Send", "error_name": "Please enter your name", "error_phone": "Please check the phone number",
+        "error_consent": "Consent is required", "error_send": "Couldn't send. Please call us: +7 (812) 000-00-00"
+      },
+      "ar": {
+        "title": "اترك بياناتك وسيتصل بك المدير خلال ١٥ دقيقة",
+        "name": "الاسم", "phone": "رقم الهاتف", "comment": "ملاحظة (اختياري)",
+        "consent": "أوافق على معالجة بياناتي الشخصية", "privacy": "سياسة الخصوصية",
+        "submit": "إرسال", "error_name": "يرجى كتابة الاسم", "error_phone": "يرجى التأكد من رقم الهاتف",
+        "error_consent": "الموافقة مطلوبة", "error_send": "تعذّر الإرسال. اتصل بنا: ‎+7 (812) 000-00-00"
+      }
+    }
+  }
+}
