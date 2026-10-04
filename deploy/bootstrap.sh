@@ -42,14 +42,15 @@ Description=Deploy site-ai-consultant from GitHub if main changed
 After=docker.service network-online.target
 [Service]
 Type=oneshot
+Environment=HOME=/root
 ExecStart=$APP/deploy/autodeploy.sh
 UNIT
 cat > $UNITS/site-ai-autodeploy.timer <<UNIT
 [Unit]
 Description=Check GitHub for site-ai-consultant updates every minute
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=1min
+OnActiveSec=20s
+OnUnitInactiveSec=1min
 [Install]
 WantedBy=timers.target
 UNIT
@@ -60,6 +61,8 @@ systemctl daemon-reload
 
 echo "== 5/5 Build and start (2–5 minutes the first time) =="
 "$APP/deploy/autodeploy.sh" --force
-systemctl enable --now site-ai-autodeploy.timer >/dev/null
+systemctl enable site-ai-autodeploy.timer >/dev/null
+systemctl restart site-ai-autodeploy.timer
 echo
 if wait_healthy >/dev/null; then echo "✅ Done: $(curl -fsS "https://$(get_env DOMAIN)/health")"; else echo "❌ The app did not answer — send me a screenshot"; fi
+systemctl list-timers site-ai-autodeploy.timer --no-pager | head -2
