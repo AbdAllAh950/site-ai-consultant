@@ -32,7 +32,7 @@
       "onError": "continueRegularOutput",
       "parameters": {
         "method": "POST",
-        "url": "https://ai.api.cloud.yandex.net/v1/chat/completions",
+        "url": "={{ $env.LLM_URL || 'https://ai.api.cloud.yandex.net/v1/chat/completions' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
