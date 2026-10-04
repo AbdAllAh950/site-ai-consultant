@@ -7,7 +7,19 @@
 # so that webhook is closed from the internet.
 n8n.{$DOMAIN} {
 	encode gzip
+	log {
+		output file /data/n8n-access.log {
+			roll_size 5MiB
+			roll_keep 2
+		}
+		format json
+	}
 	@internal path /webhook/ai-lead* /webhook-test/ai-lead*
 	respond @internal "internal only" 403
+	# temporary: shows whether this browser keeps and sends cookies for this host
+	handle /__probe {
+		header Set-Cookie "probe=1; Path=/; Max-Age=600; Secure; HttpOnly; SameSite=Lax"
+		respond "cookie=[{http.request.header.Cookie}] browser-id=[{http.request.header.browser-id}]" 200
+	}
 	reverse_proxy n8n:5678
 }
