@@ -30,7 +30,7 @@ n8n_import() {
   [ -n "$(docker compose ps -q --status running n8n 2>/dev/null)" ] || return 0
   local f
   for f in "$APP"/n8n/*.json; do
-    docker compose exec -T n8n n8n import:workflow --input="/workflows/$(basename "$f")" >/dev/null 2>&1 || return 0
+    docker compose exec -T n8n n8n import:workflow --input="/workflows/$(basename "$f")" </dev/null >/dev/null 2>&1 || return 0
   done
   touch "$APP/.n8n-imported"
   echo "$(date -Is) n8n workflows imported"

@@ -48,5 +48,5 @@ BY=$(curl -sS -X POST "https://$DOMAIN/api/chat" -H 'Content-Type: application/j
   | python3 -c 'import sys,json; print(json.load(sys.stdin).get("by",""))' 2>/dev/null || true)
 echo
 [ "$BY" = "ai" ] && echo "YandexGPT: ✅ answers" || echo "YandexGPT: ❌ no answer ($BY) — check the key, folder id and role ai.languageModels.user"
-docker compose exec -T app python -m app.notify test "$SITE"
+docker compose exec -T app python -m app.notify test "$SITE" </dev/null
 echo "Demo: https://$DOMAIN/demo/"

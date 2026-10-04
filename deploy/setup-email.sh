@@ -26,6 +26,6 @@ echo "Restarting..."
 docker compose up -d --force-recreate app >/dev/null
 wait_healthy >/dev/null || true
 echo
-docker compose exec -T app python -m app.notify test "$SITE"
+docker compose exec -T app python -m app.notify test "$SITE" </dev/null
 echo
 echo "If email says OK — check $TO (and the Spam folder)."

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# One-time switch of the demo server to auto-deploy from GitHub. Run as root:
-#   git -C /opt/site-ai-consultant fetch origin main && git -C /opt/site-ai-consultant show origin/main:deploy/bootstrap.sh | bash
+# One-time switch of the demo server to auto-deploy from GitHub (safe to run again). As root:
+#   git -C /opt/site-ai-consultant fetch origin main && git -C /opt/site-ai-consultant show origin/main:deploy/bootstrap.sh > /tmp/ai-bootstrap.sh && bash /tmp/ai-bootstrap.sh
 set -euo pipefail
 APP=${APP:-/opt/site-ai-consultant}
 UNITS=${UNITS:-/etc/systemd/system}
@@ -60,9 +60,10 @@ ln -sf "$APP/deploy/setup-email.sh" $BIN/ai-email-setup
 systemctl daemon-reload
 
 echo "== 5/5 Build and start (2–5 minutes the first time) =="
-"$APP/deploy/autodeploy.sh" --force
+"$APP/deploy/autodeploy.sh" --force || echo "deploy step failed — see the lines above"
 systemctl enable site-ai-autodeploy.timer >/dev/null
 systemctl restart site-ai-autodeploy.timer
 echo
 if wait_healthy >/dev/null; then echo "✅ Done: $(curl -fsS "https://$(get_env DOMAIN)/health")"; else echo "❌ The app did not answer — send me a screenshot"; fi
 systemctl list-timers site-ai-autodeploy.timer --no-pager | head -2
+docker compose ps --format 'table {{.Service}}\t{{.Status}}'
