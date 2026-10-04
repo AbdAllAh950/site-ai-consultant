@@ -1,0 +1,358 @@
+{
+  "id": "aiLeadSheet00001",
+  "name": "Заявки AI-чата → оценка YandexGPT → Google Таблица",
+  "active": false,
+  "nodes": [
+    {
+      "id": "343a0c38-5f52-4131-a2db-25477616f73a",
+      "name": "Заявка из AI-чата",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "93e6fe81-1903-4b86-961a-7f339684a401",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-lead",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "4581cff8-fcdf-4fd0-82ea-107d2f5723d7",
+      "name": "Оценка YandexGPT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://ai.api.cloud.yandex.net/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $env.LLM_AUTH }}"
+            },
+            {
+              "name": "OpenAI-Project",
+              "value": "={{ $env.LLM_PROJECT }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $env.LLM_SUMMARY_MODEL || $env.LLM_MODEL, temperature: 0, max_tokens: 250, messages: [ { role: 'system', content: \"Ты помощник менеджера ландшафтного бюро. Оцени заявку из чата на сайте. Верни только JSON без пояснений: {\\\"priority\\\": \\\"горячая\\\" | \\\"тёплая\\\" | \\\"холодная\\\", \\\"reason\\\": \\\"почему, до 12 слов\\\", \\\"next_step\\\": \\\"что менеджеру сделать сейчас, до 12 слов\\\"}. Горячая — хочет начать в ближайшие 2 месяца или просит выезд, замер, расчёт как можно скорее. Тёплая — есть конкретная задача, но сроки дальше или не названы. Холодная — только узнаёт цены.\" }, { role: 'user', content: 'Сегодня: ' + $now.setZone('Europe/Moscow').toFormat('dd.MM.yyyy') + '\\nЗаявка: ' + JSON.stringify({ service: $json.body.service, details: $json.body.details, budget: $json.body.budget, timeline: $json.body.timeline, summary: $json.body.summary, comment: $json.body.comment }) + '\\nПереписка:\\n' + ($json.body.dialog || []).map(m => (m.role === 'user' ? 'Клиент: ' : 'Консультант: ') + m.text).join('\\n') } ] }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "e5d2ce80-137f-4ec9-9510-6e607ce081a5",
+      "name": "Строка для таблицы",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Lead from the AI chat + YandexGPT's score → one row for the sheet\nconst lead = $('Заявка из AI-чата').first().json.body;\nconst raw = $json.choices?.[0]?.message?.content ?? '';\nlet score;\ntry {\n  score = JSON.parse(raw.match(/\\{[\\s\\S]*\\}/)[0]);\n} catch (e) {\n  score = { priority: 'не оценено', reason: 'нейросеть не ответила', next_step: 'перезвонить' };\n}\nreturn [{ json: {\n  'Дата': $now.setZone('Europe/Moscow').toFormat('dd.MM.yyyy HH:mm'),\n  'Имя': lead.name,\n  'Телефон': lead.phone,\n  'Что нужно': lead.service || '',\n  'Детали': lead.details || '',\n  'Бюджет': lead.budget || '',\n  'Сроки': lead.timeline || '',\n  'Кратко': lead.summary || lead.comment || '',\n  'Приоритет': score.priority || '',\n  'Почему': score.reason || '',\n  'Следующий шаг': score.next_step || '',\n  'Язык': lead.lang || '',\n  'Страница': lead.page || '',\n} }];"
+      }
+    },
+    {
+      "id": "39887001-9622-4077-ad70-f7186478a563",
+      "name": "Google Таблица",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1W2m58UMqs_ARFLdF-s_lzV6a5uUb0UIY6whVnb-23QQ",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Заявки"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Дата",
+              "displayName": "Дата",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Имя",
+              "displayName": "Имя",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Телефон",
+              "displayName": "Телефон",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Что нужно",
+              "displayName": "Что нужно",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Детали",
+              "displayName": "Детали",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Бюджет",
+              "displayName": "Бюджет",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Сроки",
+              "displayName": "Сроки",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Кратко",
+              "displayName": "Кратко",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Приоритет",
+              "displayName": "Приоритет",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Почему",
+              "displayName": "Почему",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Следующий шаг",
+              "displayName": "Следующий шаг",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Язык",
+              "displayName": "Язык",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Страница",
+              "displayName": "Страница",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      }
+    },
+    {
+      "id": "900f8439-9837-4f2f-82b2-cd347f0c34fd",
+      "name": "Горячая?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "a0942032-55b6-4011-b6a6-142bdd3fe300",
+              "leftValue": "={{ $('Строка для таблицы').item.json['Приоритет'] }}",
+              "rightValue": "горяч",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "04be50a8-bc32-4e71-a7e5-ce91d4553674",
+      "name": "🔥 Срочно менеджеру",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        -100
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TELEGRAM_API_URL }}/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $env.LEADS_TELEGRAM_CHAT_ID, text: '🔥 Горячая заявка: ' + $('Строка для таблицы').item.json['Имя'] + ', ' + $('Строка для таблицы').item.json['Телефон'] + '\\n' + $('Строка для таблицы').item.json['Почему'] + '\\nСделать сейчас: ' + $('Строка для таблицы').item.json['Следующий шаг'] + '\\n📊 Уже в Google Таблице' }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "bd6cf138-e38d-429f-bbf0-7c711cac0358",
+      "name": "Заметка",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -330
+      ],
+      "parameters": {
+        "width": 1120,
+        "height": 260,
+        "color": 4,
+        "content": "## Заявки с сайта → Google Таблица\n1. AI-консультант на сайте собрал заявку и отправил её сюда\n2. YandexGPT оценивает: горячая, тёплая или холодная — и что делать менеджеру\n3. Заявка с оценкой появляется новой строкой в Google Таблице\n4. Горячая заявка — сразу сообщение менеджеру в Telegram"
+      }
+    }
+  ],
+  "connections": {
+    "Заявка из AI-чата": {
+      "main": [
+        [
+          {
+            "node": "Оценка YandexGPT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Оценка YandexGPT": {
+      "main": [
+        [
+          {
+            "node": "Строка для таблицы",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Строка для таблицы": {
+      "main": [
+        [
+          {
+            "node": "Google Таблица",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Таблица": {
+      "main": [
+        [
+          {
+            "node": "Горячая?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Горячая?": {
+      "main": [
+        [
+          {
+            "node": "🔥 Срочно менеджеру",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Moscow",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}

@@ -2,3 +2,12 @@
 	encode gzip
 	reverse_proxy app:8000
 }
+
+# n8n editor and public webhooks. The consultant posts leads to n8n inside the Docker network,
+# so that webhook is closed from the internet.
+n8n.{$DOMAIN} {
+	encode gzip
+	@internal path /webhook/ai-lead* /webhook-test/ai-lead*
+	respond @internal "internal only" 403
+	reverse_proxy n8n:5678
+}

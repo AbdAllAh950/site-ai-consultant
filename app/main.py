@@ -3,13 +3,15 @@
 GET  /widget.js                      the widget (one <script> tag on any site, Tilda included)
 GET  /api/sites/{site}/config        public look and texts of a site's widget
 POST /api/chat                       one visitor message → consultant reply (+ whether to show the lead form)
-POST /api/lead                       contacts from the form → Telegram / webhook, stored in SQLite
+POST /api/lead                       contacts from the form → Telegram / MAX / email / webhook, stored in SQLite
 GET  /embed/{site}                   the snippet to paste into the client's site
 GET  /demo/                          demo landing page with the widget
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 import re
 from pathlib import Path
 
@@ -24,7 +26,7 @@ from .config import ROOT, Settings, Site, SiteRegistry
 from .consultant import Consultant, detect_lang
 from .knowledge import KnowledgeBase
 from .limits import RateLimiter
-from .notify import Notifier, telegram_text
+from .notify import Notifier, from_settings, telegram_text
 from .store import Store
 
 load_dotenv()
@@ -92,7 +94,7 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
     s = settings or Settings.from_env()
     sites = SiteRegistry(s.sites_dir)
     consultant = consultant or Consultant(s)
-    notifier = notifier or Notifier(s.telegram_token, s.telegram_api)
+    notifier = notifier or from_settings(s)
     store = store or Store(s.db_path)
     store.purge(s.keep_days)
     limiter = RateLimiter(s.max_requests_per_minute)
@@ -119,7 +121,8 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
 
     @app.get("/health")
     async def health():
-        return {"ok": True, "ai": s.llm_enabled, "telegram": bool(s.telegram_token)}
+        return {"ok": True, "version": os.getenv("APP_VERSION", "dev"), "ai": s.llm_enabled,
+                "telegram": bool(s.telegram_token), "max": bool(s.max_token), "email": notifier.smtp.enabled}
 
     @app.get("/api/sites/{site_id}/config")
     async def site_config(site_id: str, request: Request):
@@ -158,18 +161,23 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
         history = store.history(site.id, body.session)
         card = await consultant.summarize(history)
         data = {"name": body.name, "phone": phone, "comment": body.comment, "page": body.page, "lang": lang}
-        delivered = {"telegram": False, "webhook": False}
-        try:
-            delivered["telegram"] = await notifier.telegram(
-                site.telegram_chat_id, telegram_text(site.name, data, card, history))
-        except Exception:
-            log.exception("telegram delivery failed for %s", site.id)
-        try:
-            delivered["webhook"] = await notifier.webhook(site.webhook_url, {
-                "site": site.id, **data, **card, "source": "ai-chat",
-                "dialog": [{"role": m["role"], "text": m["content"]} for m in history]})
-        except Exception:
-            log.exception("webhook delivery failed for %s", site.id)
+        text = telegram_text(site.name, data, card, history)
+        channels = {
+            "telegram": notifier.telegram(site.telegram_chat_id, text),
+            "max": notifier.max(text, site.max_chat_id, site.max_user_id, site.max_token),
+            "email": notifier.email(site.lead_emails, f"Заявка из AI-чата: {body.name} · {site.name}", text),
+            "webhook": notifier.webhook(site.webhook_url, {
+                "site": site.id, "site_name": site.name, **data, **card, "source": "ai-chat",
+                "dialog": [{"role": m["role"], "text": m["content"]} for m in history]}),
+        }
+        # every channel on its own: one failing (Telegram blocked, SMTP down) never loses the lead
+        results = await asyncio.gather(*channels.values(), return_exceptions=True)
+        delivered = {}
+        for name, result in zip(channels, results):
+            if isinstance(result, BaseException):
+                log.error("%s delivery failed for %s: %r", name, site.id, result)
+                result = False
+            delivered[name] = result
         lead_id = store.add_lead(site.id, body.session, body.name, phone, card, body.page, lang, delivered)
         store.add_message(site.id, body.session, "system", f"lead #{lead_id} sent", lang)
         return {"ok": True, "message": done}

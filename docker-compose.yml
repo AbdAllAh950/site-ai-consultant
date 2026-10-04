@@ -1,6 +1,7 @@
-# Server + automatic HTTPS (Caddy, Let's Encrypt).
+# Server + automatic HTTPS (Caddy, Let's Encrypt) + n8n for automations.
 #   cp .env.example .env    # keys and DOMAIN
 #   docker compose up -d --build
+# n8n editor: https://n8n.<DOMAIN>/  (first visit creates the owner account)
 services:
   app:
     build: .
@@ -18,6 +19,26 @@ services:
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
+  n8n:
+    image: n8nio/n8n:2.41.4
+    restart: unless-stopped
+    env_file: .env                 # the lead workflow reads LLM_* and TELEGRAM_* from here ($env in nodes)
+    environment:
+      N8N_HOST: n8n.${DOMAIN}
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://n8n.${DOMAIN}/
+      N8N_PROXY_HOPS: 1
+      GENERIC_TIMEZONE: Europe/Moscow
+      TZ: Europe/Moscow
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_DEFAULT_LOCALE: en
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n:/workflows:ro
 volumes:
   data:
   caddy_data:
+  n8n_data:

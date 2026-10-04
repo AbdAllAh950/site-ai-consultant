@@ -14,7 +14,8 @@
 
 - 💬 **Отвечает по базе знаний компании** (YandexGPT): услуги, цены «от», сроки, гарантии. Чего нет в базе — не выдумывает, а предлагает связаться с менеджером.
 - 🎯 **Ловит момент заявки.** Когда посетитель просит расчёт, выезд или звонок, в чате появляется короткая форма: имя, телефон, согласие на обработку данных.
-- 📨 **Заявка со сводкой** уходит в Telegram менеджеру: что нужно, детали, бюджет, сроки и последние вопросы клиента. Параллельно — JSON на вебхук (amoCRM, Bitrix24, n8n, Albato).
+- 📨 **Заявка со сводкой** уходит менеджеру в Telegram, MAX и на почту: что нужно, детали, бюджет, сроки и последние вопросы клиента. Параллельно — JSON на вебхук (amoCRM, Bitrix24, n8n, Albato). Каналы независимы: если один недоступен, остальные всё равно доставят заявку.
+- ⚙️ **n8n в комплекте:** готовый сценарий — заявка → оценка YandexGPT (горячая / тёплая / холодная и что делать менеджеру) → строка в Google Таблице → срочное сообщение по горячим.
 - 🌍 **Русский, английский, арабский** — язык определяется по сообщению, для арабского окно чата зеркалится (RTL).
 - 🧩 **Не ломает сайт клиента:** виджет живёт в Shadow DOM, стили сайта на него не влияют и наоборот. Цвет и тексты задаются в настройках, шрифт берётся с сайта.
 - 🛡 **Готов к продакшену:** список разрешённых доменов для каждого сайта, лимиты сообщений против накрутки расходов на нейросеть, переписка удаляется через 90 дней (152-ФЗ), данные и модель в России.
@@ -27,7 +28,8 @@
 
 1. Скопируйте `sites/zeleny-kontur` в `sites/<id-клиента>` (латиница, цифры, дефис).
 2. **`kb.md`** — база знаний: первый абзац о компании, дальше разделы `## Заголовок` с фактами (услуги и цены, сроки, география, оплата, гарантии, частые вопросы).
-3. **`site.json`** — название, цвет (`accent`), приветствие, подсказки-кнопки, тексты формы, ссылка на политику конфиденциальности, `qualify` (что узнать до формы), `allowed_origins` (домены сайта клиента), `telegram_chat_id`, `webhook_url`.
+3. **`site.json`** — название, цвет (`accent`), приветствие, подсказки-кнопки, тексты формы, ссылка на политику конфиденциальности, `qualify` (что узнать до формы), `allowed_origins` (домены сайта клиента), `glossary` (как переводить термины клиента на арабский и английский).
+   Куда слать заявки — в **`site.local.json`** рядом (он не попадает в git): `telegram_chat_id`, `max_chat_id` или `max_user_id` (+ `max_token`, если у клиента свой бот в MAX), `lead_emails`, `webhook_url`.
 4. Добавьте вашего Telegram-бота в чат менеджеров клиента и узнайте id чата: напишите в чат любое сообщение и откройте `https://api.telegram.org/bot<ТОКЕН>/getUpdates` — нужное поле `chat.id` (у групп начинается с `-100`).
 5. Код для сайта: `https://<ваш-сервер>/embed/<id-клиента>` покажет готовую строку:
    ```html
@@ -65,6 +67,12 @@ HTTPS выпускается автоматически (Caddy + Let's Encrypt).
 
 Отчёт для клиента: `docker compose exec app python -m app.report <id-клиента> --send`. Еженедельно — через cron.
 
+**Каналы заявок.** Почта: `SMTP_HOST/PORT/USER/PASSWORD/FROM` в `.env` (Яндекс: `smtp.yandex.ru:465` и пароль приложения) или команда `ai-email-setup` на сервере. MAX: бот создаётся на платформе MAX для партнёров (нужен верифицированный профиль юрлица, ИП или самозанятого), токен — в `MAX_BOT_TOKEN` или `max_token` клиента. Проверить все каналы сайта: `docker compose exec app python -m app.notify test <id-клиента>`.
+
+**n8n** поднимается вместе с сервисом: `https://n8n.<домен>/`. Сценарий `n8n/ai-lead-to-sheet.json` импортируется сам; в нём нужно выбрать доступ к Google (сервисный аккаунт) и включить сценарий. Чтобы заявки шли в n8n, в `site.local.json` укажите `"webhook_url": "http://n8n:5678/webhook/ai-lead"`.
+
+**Автодеплой.** `deploy/bootstrap.sh` один раз включает таймер: сервер каждую минуту проверяет `main` на GitHub и сам пересобирается при изменениях (`sudo ai-deploy` — сразу). Версия видна в `/health`.
+
 ### Локальный запуск
 
 ```bash
@@ -82,7 +90,7 @@ pip install -r requirements.txt playwright && playwright install chromium
 pytest -q
 ```
 
-36 тестов. API: база знаний, язык, ответы модели с историей, метка заявки и намерение «перезвоните», падение модели, работа без модели, лимиты, домены, согласие и телефон, доставка в Telegram и на вебхук (сводка в ```-блоке), повторная заявка, экранирование HTML, отчёт и удаление старых данных. Браузер (Playwright, реальный сервер): вопрос → ответ → форма → ошибки → заявка → перезагрузка страницы, арабский RTL, полноэкранный чат на телефоне, стили сайта не ломают виджет.
+44 теста. API: база знаний, язык и глоссарий, ответы модели с историей, метка заявки и намерение «перезвоните», падение модели, работа без модели, лимиты, домены, согласие и телефон, доставка в Telegram, MAX, на почту и на вебхук (сводка в ```-блоке), отказ одного канала, приватные настройки сайта, повторная заявка, экранирование HTML, отчёт и удаление старых данных. Браузер (Playwright, реальный сервер): вопрос → ответ → форма → ошибки → заявка → перезагрузка страницы, арабский RTL, полноэкранный чат на телефоне, стили сайта не ломают виджет.
 
 ### Структура
 
@@ -91,7 +99,9 @@ app/main.py          API: /api/chat, /api/lead, /api/sites/{id}/config, /widget.
 app/consultant.py    промпт, ответы модели, метка заявки, сводка для менеджера
 app/knowledge.py     база знаний из Markdown, поиск по разделам
 app/store.py         SQLite: переписка, заявки, статистика, удаление старых данных
-app/notify.py        Telegram и вебхук
+app/notify.py        Telegram, MAX, почта и вебхук; проверка каналов
+n8n/                 сценарии n8n (заявка → YandexGPT → Google Таблица)
+deploy/              Caddy, автодеплой с GitHub, настройка ключей и почты на сервере
 app/report.py        еженедельный отчёт
 widget/widget.js     виджет (без зависимостей, ~22 КБ)
 sites/<id>/          настройки и база знаний каждого клиента
@@ -103,7 +113,7 @@ scripts/make_plans.py  генератор иллюстраций-генплан�
 
 ## English
 
-An AI chat for business websites: it answers visitors 24/7 from the company's own knowledge base (YandexGPT, no invented prices), notices when someone wants a quote, a site visit or a call, collects name, phone and consent right in the chat, and sends the manager a summarized lead in Telegram plus a JSON webhook for any CRM. It installs on Tilda or any site with one `<script>` tag, and one server hosts many client sites.
+An AI chat for business websites: it answers visitors 24/7 from the company's own knowledge base (YandexGPT, no invented prices), notices when someone wants a quote, a site visit or a call, collects name, phone and consent right in the chat, and sends the manager a summarized lead in Telegram, MAX and email, plus a JSON webhook for any CRM. A bundled n8n workflow scores each lead with YandexGPT and appends it to a Google Sheet. It installs on Tilda or any site with one `<script>` tag, and one server hosts many client sites.
 
 It speaks Russian, English and Arabic: the language is detected per message and the window mirrors for RTL. The widget is a dependency-free Shadow DOM component, so the host page's CSS can't break it. Each site has its own allowed domains. There are per-visitor and per-session limits on model spend, a 90-day retention purge, and Russian hosting for 152-FZ. If the model is down, the chat falls back to the knowledge base and shows the lead form, so no lead is lost. A weekly report goes to the client's Telegram.
 

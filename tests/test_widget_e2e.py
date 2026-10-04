@@ -71,7 +71,8 @@ def test_question_form_and_lead_on_desktop(server, browser):
     assert page.locator(".chip").count() == 4
 
     page.locator(".chip", has_text="Сколько стоит газон?").click()
-    page.wait_for_function("document.querySelector('#ai-consultant').shadowRoot.querySelectorAll('.msg.bot').length >= 2")
+    page.wait_for_function("(document.querySelector('#ai-consultant').shadowRoot.querySelectorAll('.msg.bot')[1] || {})"
+                           ".textContent?.includes('590')")  # the reply bubble appears first, then fills
     assert "590 ₽" in page.locator(".msg.bot").nth(1).inner_text()
     assert page.locator(".chip").count() == 0 and page.locator(".card").count() == 0
 

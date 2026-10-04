@@ -1,7 +1,9 @@
 """Settings (environment) and per-site configuration (sites/<id>/site.json + kb.md).
 
 One server serves many client sites: every site has its own knowledge base, look, texts,
-Telegram chat for leads and list of domains allowed to embed the widget.
+where leads go (Telegram, MAX, email, webhook) and list of domains allowed to embed the widget.
+Private per-site settings (chat ids, emails, a client's own MAX bot token) can live in
+sites/<id>/site.local.json, which is merged over site.json and never committed.
 """
 from __future__ import annotations
 
@@ -24,6 +26,13 @@ class Settings:
     llm_project: str = ""                # Yandex: folder id, sent as the OpenAI-Project header
     telegram_token: str = ""
     telegram_api: str = "https://api.telegram.org"
+    max_token: str = ""                  # MAX messenger bot (platform-api2.max.ru); a site may bring its own
+    max_api: str = "https://platform-api2.max.ru"
+    smtp_host: str = ""                  # email for leads, e.g. smtp.yandex.ru:465 with an app password
+    smtp_port: int = 465
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
     sites_dir: Path = ROOT / "sites"
     db_path: Path = ROOT / "data" / "consultant.sqlite"
     public_url: str = ""                 # e.g. https://ai.example.ru — used in embed snippets
@@ -43,6 +52,9 @@ class Settings:
             llm_summary_model=e("LLM_SUMMARY_MODEL", ""), llm_project=e("LLM_PROJECT", ""),
             telegram_token=e("TELEGRAM_BOT_TOKEN", ""),
             telegram_api=e("TELEGRAM_API_URL", "https://api.telegram.org"),
+            max_token=e("MAX_BOT_TOKEN", ""), max_api=e("MAX_API_URL", "https://platform-api2.max.ru"),
+            smtp_host=e("SMTP_HOST", ""), smtp_port=int(e("SMTP_PORT", "465")), smtp_user=e("SMTP_USER", ""),
+            smtp_password=e("SMTP_PASSWORD", ""), smtp_from=e("SMTP_FROM", ""),
             sites_dir=Path(e("SITES_DIR", str(ROOT / "sites"))),
             db_path=Path(e("DB_PATH", str(ROOT / "data" / "consultant.sqlite"))),
             public_url=e("PUBLIC_URL", "").rstrip("/"),
@@ -61,8 +73,13 @@ class Site:
     widget: dict                         # public: title, subtitle, accent, texts per language…
     telegram_chat_id: str = ""
     webhook_url: str = ""
+    max_chat_id: str = ""                # MAX group chat with managers…
+    max_user_id: str = ""                # …or one manager's MAX user id
+    max_token: str = ""                  # the client's own MAX bot, if not the server's
+    lead_emails: list[str] = field(default_factory=list)
     allowed_origins: list[str] = field(default_factory=list)
     qualify: list[str] = field(default_factory=list)   # what to find out before the lead form
+    glossary: dict[str, list[str]] = field(default_factory=dict)  # lang → "термин — перевод" lines
 
     def origin_allowed(self, origin: str | None) -> bool:
         if not self.allowed_origins or "*" in self.allowed_origins:
@@ -83,6 +100,7 @@ class Site:
 
 
 SITE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{1,40}$")
+LOCAL = "site.local.json"
 
 
 def load_site(sites_dir: Path, site_id: str) -> Site | None:
@@ -93,14 +111,23 @@ def load_site(sites_dir: Path, site_id: str) -> Site | None:
     if not cfg_file.exists() or not kb_file.exists():
         return None
     cfg = json.loads(cfg_file.read_text(encoding="utf-8"))
+    local = folder / LOCAL
+    if local.exists():
+        cfg.update(json.loads(local.read_text(encoding="utf-8")))
+    emails = cfg.get("lead_emails", [])
     return Site(
         id=site_id, name=cfg["name"], about=cfg.get("about", ""),
         kb_text=kb_file.read_text(encoding="utf-8"),
         widget=cfg.get("widget", {}),
         telegram_chat_id=str(cfg.get("telegram_chat_id", "")),
         webhook_url=cfg.get("webhook_url", ""),
+        max_chat_id=str(cfg.get("max_chat_id", "")),
+        max_user_id=str(cfg.get("max_user_id", "")),
+        max_token=cfg.get("max_token", ""),
+        lead_emails=[emails] if isinstance(emails, str) else list(emails),
         allowed_origins=cfg.get("allowed_origins", []),
         qualify=cfg.get("qualify", []),
+        glossary=cfg.get("glossary", {}),
     )
 
 
@@ -117,6 +144,9 @@ class SiteRegistry:
             stamp = max((folder / "site.json").stat().st_mtime, (folder / "kb.md").stat().st_mtime)
         except (FileNotFoundError, NotADirectoryError):
             return None
+        local = folder / LOCAL
+        if local.exists():
+            stamp = max(stamp, local.stat().st_mtime)
         cached = self._cache.get(site_id)
         if cached and cached[0] == stamp:
             return cached[1]

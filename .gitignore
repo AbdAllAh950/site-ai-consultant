@@ -5,3 +5,7 @@ __pycache__/
 data/
 *.sqlite
 .DS_Store
+sites/*/site.local.json
+VERSION
+.n8n-imported
+.env.tmp
