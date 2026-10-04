@@ -22,8 +22,16 @@ services:
   n8n:
     image: n8nio/n8n:2.41.4
     restart: unless-stopped
-    env_file: .env                 # the lead workflow reads LLM_* and TELEGRAM_* from here ($env in nodes)
     environment:
+      # what the lead workflow reads with $env (listed one by one, so app deploys don't restart n8n)
+      LLM_URL: ${LLM_URL:-}
+      LLM_AUTH: ${LLM_AUTH:-}
+      LLM_PROJECT: ${LLM_PROJECT:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_SUMMARY_MODEL: ${LLM_SUMMARY_MODEL:-}
+      TELEGRAM_API_URL: ${TELEGRAM_API_URL:-https://api.telegram.org}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      LEADS_TELEGRAM_CHAT_ID: ${LEADS_TELEGRAM_CHAT_ID:-}
       N8N_HOST: n8n.${DOMAIN}
       N8N_PROTOCOL: https
       WEBHOOK_URL: https://n8n.${DOMAIN}/

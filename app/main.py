@@ -124,6 +124,17 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
         return {"ok": True, "version": os.getenv("APP_VERSION", "dev"), "ai": s.llm_enabled,
                 "telegram": bool(s.telegram_token), "max": bool(s.max_token), "email": notifier.smtp.enabled}
 
+    @app.get("/api/_probe")
+    async def probe(request: Request):
+        """Temporary: checks that custom headers and cookies survive the way from the browser to the app."""
+        from fastapi.responses import JSONResponse
+        seen = {k: (v if k in ("browser-id", "x-forwarded-proto", "x-forwarded-for", "user-agent", "via") else "…")
+                for k, v in request.headers.items()}
+        seen["cookie-names"] = list(request.cookies)
+        r = JSONResponse(seen)
+        r.set_cookie("probe", "1", max_age=600, secure=True, httponly=True, samesite="lax")
+        return r
+
     @app.get("/api/sites/{site_id}/config")
     async def site_config(site_id: str, request: Request):
         return site_or_404(site_id, request).public_config()
