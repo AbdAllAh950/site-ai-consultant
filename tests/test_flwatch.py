@@ -125,6 +125,7 @@ def test_first_start_marks_feed_as_old_then_alerts_new_fitting_project(tmp_path)
         assert await w.tick(NOW) == []
         assert len(fake.sent) == 1 and "اشتغل" in fake.sent[0]["text"] and not fake.llm_calls
 
+        w.seen.meta("sample", "skip")              # the one-off example alert has its own test
         fake.feed = feed(OLD, BOT, VIDEO, CHEAP)
         sent = await w.tick(NOW)
         assert [p.id for p in sent] == ["5524460"]          # video: not his work; 500 ₽: too cheap
@@ -147,6 +148,7 @@ def test_low_fit_is_not_sent(tmp_path):
         fake.feed = feed(OLD)
         w = watcher(tmp_path, fake)
         await w.tick(NOW)
+        w.seen.meta("sample", "skip")
         fake.feed = feed(OLD, BOT)
         assert await w.tick(NOW) == [] and len(fake.sent) == 1 and len(fake.llm_calls) == 1
     asyncio.run(body())
@@ -158,6 +160,7 @@ def test_telegram_failure_retries_without_asking_the_model_again(tmp_path):
         fake.feed = feed(OLD)
         w = watcher(tmp_path, fake)
         await w.tick(NOW)
+        w.seen.meta("sample", "skip")
         fake.feed, fake.tg_down = feed(OLD, BOT), True
         assert await w.tick(NOW) == []
         fake.tg_down = False
@@ -171,6 +174,7 @@ def test_telegram_refusal_behind_the_relay_is_a_failure(tmp_path):
         fake.feed = feed(OLD)
         w = watcher(tmp_path, fake)
         await w.tick(NOW)
+        w.seen.meta("sample", "skip")
         fake.feed, fake.tg_down = feed(OLD, BOT), "refused"
         assert await w.tick(NOW) == [] and "5524460" not in w.seen.known()
         assert flwatch.STATUS["last_error"] == "telegram: RuntimeError"
@@ -183,6 +187,7 @@ def test_daily_limit(tmp_path):
         fake.feed = feed(OLD)
         w = watcher(tmp_path, fake, fl_daily_max=1)
         await w.tick(NOW)
+        w.seen.meta("sample", "skip")
         fake.feed = feed(OLD, BOT, APPSTORE)
         assert len(await w.tick(NOW)) == 1
     asyncio.run(body())
@@ -212,10 +217,29 @@ def test_night_alerts_are_silent(tmp_path):
         w = watcher(tmp_path, fake)
         night = datetime(2026, 10, 5, 23, 10, tzinfo=timezone.utc)    # 02:10 in Moscow
         await w.tick(night)
+        w.seen.meta("sample", "skip")
         fake.feed = feed(OLD, item("5524999", "Telegram-бот с ИИ для записи клиентов", "AI — искусственный интеллект / Боты с AI", 0))
         fake.feed = fake.feed.replace((NOW).strftime("%a, %d %b %Y %H:%M:%S GMT"), night.strftime("%a, %d %b %Y %H:%M:%S GMT"))
         await w.tick(night)
         assert fake.sent[-1]["disable_notification"] is True
+    asyncio.run(body())
+
+
+def test_one_example_alert_after_start(tmp_path):
+    async def body():
+        fake = Fake()
+        fake.feed = feed(OLD)
+        w = watcher(tmp_path, fake)
+        await w.tick(NOW)                              # first start: hello
+        fake.feed = feed(OLD, BOT)                     # BOT is now in the feed but counted as old below
+        w.seen.add(parse_rss(feed(BOT))[0], -1, False)
+        assert await w.tick(NOW) == []
+        example = fake.sent[-1]
+        assert example["text"].startswith("🧪") and "Доработка существующего бота-парсера" in example["text"]
+        assert flwatch.STATUS["sample"] == "sent: 5524460 fit 8"
+        n = len(fake.sent)
+        await w.tick(NOW)
+        assert len(fake.sent) == n                     # only once
     asyncio.run(body())
 
 

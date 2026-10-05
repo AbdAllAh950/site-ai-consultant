@@ -221,6 +221,16 @@ class Seen:
         with self.lock:
             self.conn.execute("CREATE TABLE IF NOT EXISTS seen (id TEXT PRIMARY KEY, ts REAL, fit INTEGER, "
                               "sent INTEGER, title TEXT)")
+            self.conn.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
+
+    def meta(self, key: str, value: str | None = None) -> str | None:
+        with self.lock:
+            if value is not None:
+                self.conn.execute("INSERT OR REPLACE INTO meta VALUES (?,?)", (key, value))
+                self.conn.commit()
+                return value
+            row = self.conn.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+            return row[0] if row else None
 
     def known(self) -> set[str]:
         with self.lock:
@@ -334,6 +344,8 @@ class FlWatch:
                 f"المشاريع اللي في الفيد دلوقتي ({len(projects)}) اعتبرتها قديمة.")
             STATUS.update(seen=self.seen.count(), sent_today=0)
             return []
+        if not self.seen.meta("sample"):
+            await self.sample(projects, now)
         sent = []
         for p in sorted((p for p in projects if p.id not in known), key=lambda p: p.published):
             if (now - p.published > MAX_AGE or not relevant(p)
@@ -366,6 +378,33 @@ class FlWatch:
             sent.append(p)
         STATUS.update(seen=self.seen.count(), sent_today=self.seen.sent_since(day_start(now)))
         return sent
+
+    async def sample(self, projects: list[Project], now: datetime) -> None:
+        """Once: the best of today's fitting projects as an example alert — shows the format and proves that
+        the whole chain (FL.ru → model → Telegram) works, without waiting for the next new project."""
+        fresh = sorted((p for p in projects if now - p.published < timedelta(hours=24) and relevant(p)
+                        and STRONG.search(f"{p.title}\n{p.summary}")), key=lambda p: p.published, reverse=True)[:3]
+        best: tuple[Project, Verdict] | None = None
+        for p in fresh:
+            p.description = p.description or await self.description(p) or p.summary
+            v = await self.judge(p)
+            if v and (best is None or v.fit > best[1].fit):
+                best = (p, v)
+        if not best:
+            STATUS["sample"] = "no fresh fitting project" if not fresh else "model gave no draft"
+            self.seen.meta("sample", STATUS["sample"])
+            return
+        p, v = best
+        intro = ("🧪 <b>مثال لشكل التنبيه</b>: ده أحسن مشروع مناسب من آخر ٢٤ ساعة، وغالبًا عليه ردود كتير. "
+                 "التنبيهات الجاية هتوصلك أول ما المشروع ينزل.\n\n")
+        try:
+            await self.notifier.telegram(self.chat_id, intro + alert_text(p, v, now),
+                                         buttons=[("افتح المشروع على FL.ru", p.url)])
+        except Exception as exc:
+            STATUS["sample"] = f"not sent: {type(exc).__name__}: {str(exc)[:120]}"
+            return                       # tried again on the next poll
+        STATUS["sample"] = f"sent: {p.id} fit {v.fit}"
+        self.seen.meta("sample", STATUS["sample"])
 
     async def run(self) -> None:
         STATUS.update(enabled=True, categories=self.categories)
