@@ -57,6 +57,7 @@ UNIT
 ln -sf "$APP/deploy/autodeploy.sh" $BIN/ai-deploy
 ln -sf "$APP/deploy/ai-setup.sh" $BIN/ai-setup
 ln -sf "$APP/deploy/setup-email.sh" $BIN/ai-email-setup
+ln -sf "$APP/deploy/setup-max.sh" $BIN/ai-max-setup
 systemctl daemon-reload
 
 echo "== 5/5 Build and start (2–5 minutes the first time) =="

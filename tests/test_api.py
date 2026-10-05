@@ -3,6 +3,7 @@ import shutil
 from dataclasses import replace
 from pathlib import Path
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -335,3 +336,52 @@ def test_health_shows_channels(env):
 
 def test_plain_text_for_email():
     assert plain("<b>Заявка</b> &amp; <i>вопрос</i>") == "Заявка & вопрос"
+
+
+# ---------- MAX: trust and connecting a client's bot ----------
+def test_max_client_trusts_russian_ca():
+    import ssl
+
+    from app.notify import RU_CA, max_ssl
+    ctx = max_ssl()
+    names = {dict(x[0] for x in c["subject"]).get("commonName") for c in ctx.get_ca_certs()}
+    assert {"Russian Trusted Root CA", "Russian Trusted Sub CA"} <= names
+    assert isinstance(ctx, ssl.SSLContext) and RU_CA.exists()
+    n = Notifier("t")                                    # no injected client: MAX gets its own
+    assert n.max_client is not n.client
+
+
+def test_max_target_from_updates():
+    from app.notify import max_target
+    assert max_target({"update_type": "bot_added", "chat_id": -7001, "user": {"user_id": 5, "first_name": "Ольга"}}) \
+        == ("max_chat_id", "-7001", "group chat (bot added by Ольга)")
+    assert max_target({"update_type": "bot_started", "chat_id": 99, "user": {"user_id": 42, "first_name": "Иван"}}) \
+        == ("max_user_id", "42", "private chat with Иван")
+    dm = {"update_type": "message_created", "message": {"sender": {"user_id": 42, "first_name": "Иван"},
+                                                        "recipient": {"chat_id": 99, "chat_type": "dialog"}}}
+    group = {"update_type": "message_created", "message": {"sender": {"user_id": 42, "first_name": "Иван"},
+                                                           "recipient": {"chat_id": -7001, "chat_type": "chat"}}}
+    assert max_target(dm)[:2] == ("max_user_id", "42") and max_target(group)[:2] == ("max_chat_id", "-7001")
+    assert max_target({"update_type": "dialog_muted"}) is None
+
+
+def test_max_connect_skips_old_events_and_finds_the_group():
+    import asyncio
+
+    from app.notify import max_connect
+    seen = []
+
+    def handler(r: httpx.Request) -> httpx.Response:
+        seen.append(r)
+        assert r.headers["Authorization"] == "client-bot"
+        if r.url.path == "/me":
+            return httpx.Response(200, json={"user_id": 1, "first_name": "Зелёный бот", "username": "zk_bot"})
+        if r.url.params.get("timeout") == "0":       # draining: an old event that must be ignored
+            return httpx.Response(200, json={"updates": [{"update_type": "bot_added", "chat_id": -1}], "marker": 10})
+        assert r.url.params.get("marker") == "10"
+        return httpx.Response(200, json={"marker": 11, "updates": [
+            {"update_type": "bot_added", "chat_id": -7001, "user": {"user_id": 5, "first_name": "Ольга"}}]})
+
+    n = Notifier("t", max_api="https://max.test", max_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    assert asyncio.run(max_connect(n, "client-bot", wait_s=30)) == ("max_chat_id", "-7001",
+                                                                  "group chat (bot added by Ольга)")

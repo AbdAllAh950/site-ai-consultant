@@ -21,7 +21,17 @@ main() {
     docker compose up -d n8n || echo "n8n not started (image pull failed?) — will retry on the next deploy"
     echo "$(date -Is) deployed $(get_env APP_VERSION)"
   fi
+  commands
   n8n_import
+}
+
+# Server commands (ai-deploy, ai-email-setup, ai-max-setup…) — new ones appear without re-running bootstrap.
+commands() {
+  local bin=/usr/local/bin
+  ln -sf "$APP/deploy/autodeploy.sh" $bin/ai-deploy
+  ln -sf "$APP/deploy/ai-setup.sh" $bin/ai-setup
+  ln -sf "$APP/deploy/setup-email.sh" $bin/ai-email-setup
+  ln -sf "$APP/deploy/setup-max.sh" $bin/ai-max-setup
 }
 
 # Imports n8n/*.json once n8n is running (retried every minute until it works).

@@ -304,6 +304,7 @@ class FlWatch:
             await self.notifier.telegram(self.chat_id, text)
         except Exception as exc:
             log.warning("FL.ru watcher message not sent: %r", exc)
+            STATUS["last_error"] = f"telegram: {type(exc).__name__}"
 
     async def tick(self, now: datetime | None = None) -> list[Project]:
         """One poll. Returns the projects sent to Telegram."""
