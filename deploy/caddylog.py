@@ -12,11 +12,13 @@ for line in sys.stdin:
     uri = r.get("uri", "")
     if not uri.startswith(("/rest/login", "/rest/module-settings", "/rest/logout", "/__probe")):
         continue
-    h = {k.lower() for k in r.get("headers", {})}
+    hdrs = {k.lower(): v for k, v in r.get("headers", {}).items()}
+    h = set(hdrs)
+    names = sorted(p.split("=", 1)[0].strip() for c in hdrs.get("cookie", []) for p in c.split(";") if "=" in p)
     rh = {k.lower() for k in e.get("resp_headers", {})}
     rows.append("%.0f %-4s %-22s %s %s cookie=%s browser-id=%s set-cookie=%s ip=%s" % (
         e.get("ts", 0), r.get("method"), uri[:22], e.get("status"), r.get("proto"),
-        "yes" if "cookie" in h else "NO", "yes" if "browser-id" in h else "NO",
+        ",".join(names) or "NO", "yes" if "browser-id" in h else "NO",
         "yes" if "set-cookie" in rh else "-", r.get("remote_ip")))
     if uri.startswith("/rest/login") and r.get("method") == "POST":
         for c in e.get("resp_headers", {}).get("Set-Cookie", []):
