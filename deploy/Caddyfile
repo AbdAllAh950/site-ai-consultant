@@ -1,3 +1,9 @@
+{
+	servers {
+		log_credentials   # temporary: n8n sign-in diagnostics (diag.sh prints cookie attributes, never values)
+	}
+}
+
 {$DOMAIN} {
 	encode gzip
 	reverse_proxy app:8000
