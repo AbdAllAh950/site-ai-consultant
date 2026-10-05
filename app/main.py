@@ -13,6 +13,7 @@ import asyncio
 import logging
 import os
 import re
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -22,6 +23,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
+from . import flwatch
 from .config import ROOT, Settings, Site, SiteRegistry
 from .consultant import Consultant, detect_lang
 from .knowledge import KnowledgeBase
@@ -100,7 +102,14 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
     limiter = RateLimiter(s.max_requests_per_minute)
     kb_cache: dict[str, tuple[Site, KnowledgeBase]] = {}
 
-    app = FastAPI(title="AI-консультант для сайта", version="1.0")
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        watcher = flwatch.start(s, notifier)     # FL.ru projects → Telegram (only on the owner's server)
+        yield
+        if watcher:
+            watcher.cancel()
+
+    app = FastAPI(title="AI-консультант для сайта", version="1.0", lifespan=lifespan)
     # The widget runs on clients' domains; each site's own list of domains is checked per request below.
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"],
                        allow_headers=["Content-Type"])
@@ -122,7 +131,8 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
     @app.get("/health")
     async def health():
         return {"ok": True, "version": os.getenv("APP_VERSION", "dev"), "ai": s.llm_enabled,
-                "telegram": bool(s.telegram_token), "max": bool(s.max_token), "email": notifier.smtp.enabled}
+                "telegram": bool(s.telegram_token), "max": bool(s.max_token), "email": notifier.smtp.enabled,
+                "flwatch": {k: v for k, v in flwatch.STATUS.items() if k != "categories"}}
 
     @app.get("/api/_probe")
     async def probe(request: Request):

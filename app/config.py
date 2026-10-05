@@ -39,6 +39,12 @@ class Settings:
     keep_days: int = 90                  # dialogs older than this are deleted
     max_messages_per_session: int = 40
     max_requests_per_minute: int = 20    # per visitor IP
+    fl_watch: bool = False               # FL.ru watcher: new fitting projects → Telegram with a drafted reply
+    fl_chat_id: str = ""                 # where the FL.ru alerts go (default: the demo site's Telegram chat)
+    fl_categories: str = "31,5,41,34,36,2"  # FL.ru RSS categories: AI, programming, automation, messengers, mobile, sites
+    fl_interval: int = 180               # seconds between polls
+    fl_daily_max: int = 15               # alerts per day at most
+    fl_min_fit: int = 6                  # model's fit score (0–10) needed to send an alert
 
     @property
     def llm_enabled(self) -> bool:
@@ -61,6 +67,12 @@ class Settings:
             keep_days=int(e("KEEP_DAYS", "90")),
             max_messages_per_session=int(e("MAX_MESSAGES_PER_SESSION", "40")),
             max_requests_per_minute=int(e("MAX_REQUESTS_PER_MINUTE", "20")),
+            fl_watch=e("FL_WATCH", "1") != "0",
+            fl_chat_id=e("FL_TELEGRAM_CHAT_ID", "") or e("LEADS_TELEGRAM_CHAT_ID", ""),
+            fl_categories=e("FL_CATEGORIES", "31,5,41,34,36,2"),
+            fl_interval=int(e("FL_INTERVAL", "180")),
+            fl_daily_max=int(e("FL_DAILY_MAX", "15")),
+            fl_min_fit=int(e("FL_MIN_FIT", "6")),
         )
 
 

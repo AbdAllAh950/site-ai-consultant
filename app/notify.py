@@ -86,12 +86,25 @@ class Notifier:
         self.smtp = smtp or Smtp("", 465, "", "")
         self.send_mail = send_mail
 
-    async def telegram(self, chat_id: str, text: str) -> bool:
+    async def telegram(self, chat_id: str, text: str, *, buttons: list[tuple[str, str]] | None = None,
+                       silent: bool = False) -> bool:
+        """buttons: (label, url) pairs shown under the message; silent: no sound (night alerts)."""
         if not (self.token and chat_id):
             return False
-        r = await self.client.post(f"{self.api}/bot{self.token}/sendMessage", json={
-            "chat_id": chat_id, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True})
+        body = {"chat_id": chat_id, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True}
+        if buttons:
+            body["reply_markup"] = {"inline_keyboard": [[{"text": t, "url": u}] for t, u in buttons]}
+        if silent:
+            body["disable_notification"] = True
+        r = await self.client.post(f"{self.api}/bot{self.token}/sendMessage", json=body)
         r.raise_for_status()
+        # the relay answers 200 even when Telegram refuses the message, so read Telegram's own verdict
+        try:
+            answer = r.json()
+        except ValueError:
+            answer = {}
+        if isinstance(answer, dict) and answer.get("ok") is False:
+            raise RuntimeError(f"Telegram refused the message: {str(answer.get('description'))[:200]}")
         return True
 
     async def max(self, text: str, chat_id: str = "", user_id: str = "", token: str = "") -> bool:
