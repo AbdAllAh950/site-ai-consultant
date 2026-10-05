@@ -102,9 +102,15 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
     limiter = RateLimiter(s.max_requests_per_minute)
     kb_cache: dict[str, tuple[Site, KnowledgeBase]] = {}
 
+    checks: dict[str, str] = {}
+
+    async def check_max() -> None:            # can this server talk to MAX (TLS with the Russian CA)?
+        checks["max_api"] = await notifier.max_reachable()
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         watcher = flwatch.start(s, notifier)     # FL.ru projects → Telegram (only on the owner's server)
+        asyncio.create_task(check_max())
         yield
         if watcher:
             watcher.cancel()
@@ -132,6 +138,7 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
     async def health():
         return {"ok": True, "version": os.getenv("APP_VERSION", "dev"), "ai": s.llm_enabled,
                 "telegram": bool(s.telegram_token), "max": bool(s.max_token), "email": notifier.smtp.enabled,
+                **checks,
                 "flwatch": {k: v for k, v in flwatch.STATUS.items() if k != "categories"}}
 
     @app.get("/api/_probe")

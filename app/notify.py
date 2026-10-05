@@ -135,6 +135,14 @@ class Notifier:
         r.raise_for_status()
         return True
 
+    async def max_reachable(self) -> str:
+        """'ok' when MAX answers over verified TLS (401 without a token is fine), else the reason."""
+        try:
+            r = await self.max_client.get(f"{self.max_api}/me", timeout=15)
+            return "ok" if r.status_code in (200, 401, 403) else f"HTTP {r.status_code}"
+        except httpx.HTTPError as exc:
+            return f"{type(exc).__name__}: {str(exc)[:120]}"
+
     async def max_get(self, path: str, token: str, **params) -> dict:
         r = await self.max_client.get(f"{self.max_api}{path}", headers={"Authorization": token},
                                       params={k: v for k, v in params.items() if v is not None}, timeout=60)

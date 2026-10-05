@@ -385,3 +385,18 @@ def test_max_connect_skips_old_events_and_finds_the_group():
     n = Notifier("t", max_api="https://max.test", max_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
     assert asyncio.run(max_connect(n, "client-bot", wait_s=30)) == ("max_chat_id", "-7001",
                                                                   "group chat (bot added by Ольга)")
+
+
+def test_max_reachable_means_tls_works():
+    import asyncio
+
+    def answer(code):
+        return Notifier("t", max_api="https://max.test", max_client=httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda r: httpx.Response(code))))
+    assert asyncio.run(answer(401).max_reachable()) == "ok"
+    assert asyncio.run(answer(502).max_reachable()) == "HTTP 502"
+
+    def broken(r):
+        raise httpx.ConnectError("[SSL: CERTIFICATE_VERIFY_FAILED]")
+    n = Notifier("t", max_api="https://max.test", max_client=httpx.AsyncClient(transport=httpx.MockTransport(broken)))
+    assert asyncio.run(n.max_reachable()).startswith("ConnectError: [SSL")
