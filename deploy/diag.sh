@@ -13,3 +13,6 @@ echo "== autodeploy"
 journalctl -u site-ai-autodeploy --since "30 min ago" --no-pager 2>/dev/null | grep -vE "Starting|Finished|Succeeded|Deactivated" | tail -5
 echo "== n8n sign-in requests (Caddy access log)"
 docker compose exec -T caddy cat /data/n8n-access.log </dev/null 2>/dev/null | python3 deploy/caddylog.py
+echo "== n8n database"
+python3 deploy/n8ndb.py "$(docker volume inspect site-ai-consultant_n8n_data -f '{{.Mountpoint}}')"
+docker ps -a --format '{{.Names}}  {{.Image}}  {{.Status}}' | grep -i n8n
