@@ -23,6 +23,22 @@ n8n.{$DOMAIN} {
 	@internal path /webhook/ai-lead* /webhook-test/ai-lead*
 	respond @internal "internal only" 403
 	# temporary: shows whether this browser keeps and sends cookies for this host
+	handle /__p1 {
+		header Set-Cookie "t1=W8Lu99TvWPE1xi3JPSd0EaydIPlLhEPN9uyyirz7xFNvED-WelfpAe_I2BJ8mCYi0crFvM_1QgafA9lX_7qkRgULADDys4HIkrJ9.jUvMjBFjHV5FHgp87AYcCNV43PjIsyd3NObumKDScS1lE7YcGG4Q4qA-eYnbA3qqNkuT6HTxYpFlZg_jm7J_NxUgZVGg6dJhzMNO2F6FXN5yAokb0HmTv3Mcydt8xecvymWq1-Xdj-6FugPPk8aMcT.p-5UkngoSYLTsv72IQjSGTwrI3sVrVdIod8W3dBpLf-IdgEXREqirOvoAb94F; Max-Age=604800; Path=/; Expires=Mon, 12 Oct 2026 03:38:09 GMT; HttpOnly; Secure; SameSite=Lax"
+		respond "p1" 200
+	}
+	handle /__p2 {
+		header Set-Cookie "t2=W8Lu99TvWPE1xi3JPSd0EaydIPlLhEPN9uyyirz7xFNvED-WelfpAe_I2BJ8mCYi0crFvM_1QgafA9lX_7qkRgULADDys4HIkrJ9.jUvMjBFjHV5FHgp87AYcCNV43PjIsyd3NObumKDScS1lE7YcGG4Q4qA-eYnbA3qqNkuT6HTxYpFlZg_jm7J_NxUgZVGg6dJhzMNO2F6FXN5yAokb0HmTv3Mcydt8xecvymWq1-Xdj-6FugPPk8aMcT.p-5UkngoSYLTsv72IQjSGTwrI3sVrVdIod8W3dBpLf-IdgEXREqirOvoAb94F; Max-Age=604800; Path=/; HttpOnly; Secure; SameSite=Lax"
+		respond "p2" 200
+	}
+	handle /__p3 {
+		header Set-Cookie "t3=1; Max-Age=604800; Path=/; Expires=Mon, 12 Oct 2026 03:38:09 GMT; HttpOnly; Secure; SameSite=Lax"
+		respond "p3" 200
+	}
+	handle /__p4 {
+		header Set-Cookie "n8n-auth-x=1; Max-Age=600; Path=/; HttpOnly; Secure; SameSite=Lax"
+		respond "p4" 200
+	}
 	handle /__probe {
 		header Set-Cookie "probe=1; Path=/; Max-Age=600; Secure; HttpOnly; SameSite=Lax"
 		respond "cookie=[{http.request.header.Cookie}] browser-id=[{http.request.header.browser-id}]" 200
