@@ -83,14 +83,20 @@ uvicorn app.main:app --reload
 open http://localhost:8000/demo/
 ```
 
+### Трейсинг, eval и MCP
+
+- **Трейсинг (OpenTelemetry, семантические соглашения GenAI).** Одно сообщение посетителя — один трейс: `invoke_agent` → `retrieval` (какие разделы базы, оценки) → `chat <модель>` (провайдер, модель, токены, причина остановки, задержка, `error.type`). Заявка — спан `lead` и по спану на каждый канал доставки. Тексты посетителей и промпты в трейсы не пишутся, пока не включено `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`. Экспорт в любой OTLP-бэкенд — `OTEL_EXPORTER_OTLP_ENDPOINT`; `/health` всегда показывает вызовы модели за час: количество, ошибки, p50/p95, токены.
+- **Eval (`evals/<site>.json`).** 20 вопросов на трёх языках. Офлайн: качество поиска по базе (hit@1, hit@3, MRR по языкам) — в тестах. С моделью: каждый вопрос проходит через настоящий промпт и модель, ответ проверяется правилами — нужные факты, форма заявки, язык ответа, без markdown, без утечки промпта и **без выдуманных чисел**: каждое число в ответе должно быть в базе знаний или в вопросе. После деплоя сервер сам прогоняет eval один раз на каждое изменение промпта, базы, настроек сайта, модели или вопросов и присылает итог в Telegram. `python -m app.evals <site> [--live]`.
+- **MCP-сервер (`python -m app.mcp_server`).** Инструменты для AI-ассистентов и агентов (Claude Desktop, Cursor): `list_sites`, `search_knowledge`, `ask_consultant`, `evaluate_retrieval` и ресурс `kb://{site}`. Только чтение: без доступа к перепискам и заявкам, входные данные проверяются.
+
 ### Тесты
 
 ```bash
-pip install -r requirements.txt playwright && playwright install chromium
+pip install -r requirements-mcp.txt playwright && playwright install chromium
 pytest -q
 ```
 
-44 теста. API: база знаний, язык и глоссарий, ответы модели с историей, метка заявки и намерение «перезвоните», падение модели, работа без модели, лимиты, домены, согласие и телефон, доставка в Telegram, MAX, на почту и на вебхук (сводка в ```-блоке), отказ одного канала, приватные настройки сайта, повторная заявка, экранирование HTML, отчёт и удаление старых данных. Браузер (Playwright, реальный сервер): вопрос → ответ → форма → ошибки → заявка → перезагрузка страницы, арабский RTL, полноэкранный чат на телефоне, стили сайта не ломают виджет.
+78 тестов. Трейсинг: структура трейса и атрибуты GenAI, токены, ошибки модели, отсутствие текстов посетителей в трейсах по умолчанию, спаны доставки заявки. Eval: проверки ответов (выдуманные числа, язык, markdown, форма), прогон через консультанта, повторный запуск только при изменениях. MCP: настоящая клиентская сессия, ошибки ввода. Остальное: API: база знаний, язык и глоссарий, ответы модели с историей, метка заявки и намерение «перезвоните», падение модели, работа без модели, лимиты, домены, согласие и телефон, доставка в Telegram, MAX, на почту и на вебхук (сводка в ```-блоке), отказ одного канала, приватные настройки сайта, повторная заявка, экранирование HTML, отчёт и удаление старых данных. Браузер (Playwright, реальный сервер): вопрос → ответ → форма → ошибки → заявка → перезагрузка страницы, арабский RTL, полноэкранный чат на телефоне, стили сайта не ломают виджет.
 
 ### Структура
 
@@ -98,6 +104,10 @@ pytest -q
 app/main.py          API: /api/chat, /api/lead, /api/sites/{id}/config, /widget.js, /embed/{id}, /demo
 app/consultant.py    промпт, ответы модели, метка заявки, сводка для менеджера
 app/knowledge.py     база знаний из Markdown, поиск по разделам
+app/tracing.py       OpenTelemetry: трейсы по соглашениям GenAI, сводка вызовов модели для /health
+app/evals.py         eval: качество поиска и поведение консультанта, запуск после деплоя
+app/mcp_server.py    MCP-сервер: инструменты только для чтения для AI-агентов
+evals/<id>.json      вопросы для eval по каждому сайту
 app/store.py         SQLite: переписка, заявки, статистика, удаление старых данных
 app/notify.py        Telegram, MAX, почта и вебхук; проверка каналов
 n8n/                 сценарии n8n (заявка → YandexGPT → Google Таблица)
@@ -117,7 +127,14 @@ An AI chat for business websites: it answers visitors 24/7 from the company's ow
 
 It speaks Russian, English and Arabic: the language is detected per message and the window mirrors for RTL. The widget is a dependency-free Shadow DOM component, so the host page's CSS can't break it. Each site has its own allowed domains. There are per-visitor and per-session limits on model spend, a 90-day retention purge, and Russian hosting for 152-FZ. If the model is down, the chat falls back to the knowledge base and shows the lead form, so no lead is lost. A weekly report goes to the client's Telegram.
 
-**Run:** `pip install -r requirements.txt && uvicorn app.main:app` → `http://localhost:8000/demo/`. **Deploy:** `docker compose up -d --build` (Caddy issues HTTPS automatically). **Tests:** `pytest -q`: 36 tests, including Playwright end-to-end runs against the real server.
+### Observability, evals and MCP
+
+- **Tracing — OpenTelemetry, GenAI semantic conventions** (`app/tracing.py`). One visitor message is one trace: `invoke_agent` → `retrieval` (which knowledge-base sections, scores, whole or narrowed context) → `chat <model>` (provider, model, input/output tokens, finish reason, latency, `error.type`). A lead is a `lead` span with one `deliver_lead <channel>` child per channel. Visitors' text and prompts stay out of traces unless `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`. `OTEL_EXPORTER_OTLP_ENDPOINT` sends spans to any OTLP backend; `/health` always shows the last hour of model calls: count, errors, p50/p95 latency, tokens.
+- **Evals** (`evals/<site>.json`, `app/evals.py`). 20 cases in Russian, English and Arabic. *Offline:* knowledge-base search hit@1 / hit@3 / MRR per language, run with the test suite. *Live:* each case goes through the real prompt, model and lead logic, and the reply is checked by rules — expected facts, lead form offered or not, reply language, no markdown, no system-prompt leakage, and **grounding**: every number in a reply must exist in the knowledge base or in the question, which catches invented prices and discounts. After each deploy the server runs the live evals once per change to the prompt, knowledge base, site settings, model or cases (a fingerprint of all of them), reports to Telegram, shows the result in `/health` and emits `gen_ai.evaluation.result` span events. `python -m app.evals <site> [--live]`.
+- **What the evals found.** Keyword search puts the right section in the top 3 for 100% of Russian questions and 0% of English or Arabic ones — the knowledge base is Russian. Small bases are sent to the model whole, so replies were unaffected, but on a large base foreign-language visitors would have got the intro only. Such queries now get as many sections as fit; multilingual embeddings are the next step.
+- **MCP server** (`app/mcp_server.py`, `python -m app.mcp_server`). Read-only tools for assistants and agents (Claude Desktop, Cursor, your own): `list_sites`, `search_knowledge`, `ask_consultant`, `evaluate_retrieval`, and a `kb://{site}` resource. Least privilege: no access to dialogs or leads, no side effects, validated and length-limited inputs, errors returned as tool errors. Tested through a real MCP client session.
+
+**Run:** `pip install -r requirements.txt && uvicorn app.main:app` → `http://localhost:8000/demo/`. **Deploy:** `docker compose up -d --build` (Caddy issues HTTPS automatically). **Tests:** `pip install -r requirements-mcp.txt && pytest -q`: 78 tests, including Playwright end-to-end runs against the real server and an MCP client session.
 
 The demo company "Zeleny Kontur" (a landscape studio), its prices and contacts are fictional.
 

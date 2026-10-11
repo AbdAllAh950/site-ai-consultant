@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 import httpx
 
+from . import tracing
 from .config import Settings, Site
 from .knowledge import KnowledgeBase
 
@@ -108,11 +109,27 @@ class Consultant:
         headers = {"Authorization": self.s.llm_auth}
         if self.s.llm_project:
             headers["OpenAI-Project"] = self.s.llm_project
-        r = await self.client.post(self.s.llm_url, headers=headers, json={
-            "model": model, "messages": messages, "max_tokens": max_tokens, "temperature": temperature,
-        })
-        r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"]
+        with tracing.chat_span(self.s.llm_url, model, max_tokens, temperature, messages) as span:
+            r = await self.client.post(self.s.llm_url, headers=headers, json={
+                "model": model, "messages": messages, "max_tokens": max_tokens, "temperature": temperature,
+            })
+            r.raise_for_status()
+            data = r.json()
+            content = data["choices"][0]["message"]["content"]
+            tracing.record_chat_response(span, data, content)
+            return content
+
+    def knowledge(self, site: Site, kb: KnowledgeBase, question: str) -> str:
+        """The part of the knowledge base the model gets, traced as a retrieval step."""
+        with tracing.retrieval_span(site.id, question) as span:
+            context, hits, whole = kb.select(question)
+            span.set_attribute("app.kb.mode", "whole" if whole else "narrowed")
+            span.set_attribute("app.kb.sections", len(kb.chunks))
+            span.set_attribute("app.kb.context_chars", len(context))
+            if hits:
+                span.set_attribute("app.kb.top_sections", [c.title for _, c in hits[:3]])
+                span.set_attribute("app.kb.top_score", round(hits[0][0], 3))
+            return context
 
     def system_prompt(self, site: Site, kb: KnowledgeBase, question: str, lang: str) -> str:
         qualify = ""
@@ -125,10 +142,18 @@ class Consultant:
             glossary = (f"\n- Термины на {LANG_NAMES[lang]} языке — используй именно эти переводы, не придумывай свои:\n"
                         + "\n".join(f"  • {t}" for t in terms))
         return SYSTEM.format(name=site.name, about=site.about, lang=LANG_NAMES[lang], qualify=qualify,
-                             glossary=glossary, lead=LEAD, kb=kb.context_for(question))
+                             glossary=glossary, lead=LEAD, kb=self.knowledge(site, kb, question))
 
     async def answer(self, site: Site, kb: KnowledgeBase, history: list[dict], question: str,
-                     hint: str = "ru") -> Reply:
+                     hint: str = "ru", conversation: str = "") -> Reply:
+        with tracing.agent_span(site.id, conversation) as span:
+            reply = await self._answer(site, kb, history, question, hint)
+            span.set_attribute("app.reply.by", reply.by)
+            span.set_attribute("app.reply.lang", reply.lang)
+            span.set_attribute("app.reply.show_form", reply.show_form)
+            return reply
+
+    async def _answer(self, site: Site, kb: KnowledgeBase, history: list[dict], question: str, hint: str) -> Reply:
         lang = detect_lang(question, hint)
         intent = bool(INTENT.search(question))
         if not self.s.llm_enabled:

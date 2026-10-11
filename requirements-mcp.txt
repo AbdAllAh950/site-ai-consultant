@@ -1,0 +1,3 @@
+# MCP server (python -m app.mcp_server) — not needed by the web app
+-r requirements.txt
+mcp>=1.9

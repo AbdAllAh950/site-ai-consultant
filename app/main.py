@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
-from . import flwatch
+from . import evals, flwatch, tracing
 from .config import ROOT, Settings, Site, SiteRegistry
 from .consultant import Consultant, detect_lang
 from .knowledge import KnowledgeBase
@@ -94,6 +94,7 @@ def client_ip(request: Request) -> str:
 def build_app(settings: Settings | None = None, consultant: Consultant | None = None,
               notifier: Notifier | None = None, store: Store | None = None) -> FastAPI:
     s = settings or Settings.from_env()
+    tracing.setup()
     sites = SiteRegistry(s.sites_dir)
     consultant = consultant or Consultant(s)
     notifier = notifier or from_settings(s)
@@ -110,10 +111,12 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         watcher = flwatch.start(s, notifier)     # FL.ru projects → Telegram (only on the owner's server)
+        evaluator = evals.start(s, consultant, sites, notifier)   # behaviour changed? → evaluate once
         asyncio.create_task(check_max())
         yield
-        if watcher:
-            watcher.cancel()
+        for task in (watcher, evaluator):
+            if task:
+                task.cancel()
 
     app = FastAPI(title="AI-консультант для сайта", version="1.0", lifespan=lifespan)
     # The widget runs on clients' domains; each site's own list of domains is checked per request below.
@@ -138,7 +141,7 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
     async def health():
         return {"ok": True, "version": os.getenv("APP_VERSION", "dev"), "ai": s.llm_enabled,
                 "telegram": bool(s.telegram_token), "max": bool(s.max_token), "email": notifier.smtp.enabled,
-                **checks,
+                **checks, "llm": tracing.health(), "evals": evals.STATUS,
                 "flwatch": {k: v for k, v in flwatch.STATUS.items() if k != "categories"}}
 
     @app.get("/api/_probe")
@@ -167,7 +170,8 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
         if store.count_user_messages(site.id, body.session) >= s.max_messages_per_session:
             return {"reply": LIMIT[lang], "show_form": True, "lang": lang, "by": "limit"}
         history = store.history(site.id, body.session)
-        reply = await consultant.answer(site, kb_for(site), history, body.message, body.lang[:2])
+        reply = await consultant.answer(site, kb_for(site), history, body.message, body.lang[:2],
+                                        conversation=body.session)
         store.add_message(site.id, body.session, "user", body.message, reply.lang)
         store.add_message(site.id, body.session, "assistant", reply.text, reply.lang)
         return {"reply": reply.text, "show_form": reply.show_form, "lang": reply.lang, "by": reply.by}
@@ -186,6 +190,10 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
         done = site.text("lead_done", lang) or DONE[lang]
         if store.recent_lead(site.id, body.session, phone):  # double click / resend: don't ping twice
             return {"ok": True, "message": done}
+        with tracing.tracer.start_as_current_span(f"lead {site.id}"):
+            return await deliver(site, body, phone, lang, done)
+
+    async def deliver(site: Site, body: LeadIn, phone: str, lang: str, done: str) -> dict:
         history = store.history(site.id, body.session)
         card = await consultant.summarize(history)
         data = {"name": body.name, "phone": phone, "comment": body.comment, "page": body.page, "lang": lang}
@@ -199,7 +207,8 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
                 "dialog": [{"role": m["role"], "text": m["content"]} for m in history]}),
         }
         # every channel on its own: one failing (Telegram blocked, SMTP down) never loses the lead
-        results = await asyncio.gather(*channels.values(), return_exceptions=True)
+        results = await asyncio.gather(*(traced_channel(n, c) for n, c in channels.items()),
+                                       return_exceptions=True)
         delivered = {}
         for name, result in zip(channels, results):
             if isinstance(result, BaseException):
@@ -209,6 +218,12 @@ def build_app(settings: Settings | None = None, consultant: Consultant | None = 
         lead_id = store.add_lead(site.id, body.session, body.name, phone, card, body.page, lang, delivered)
         store.add_message(site.id, body.session, "system", f"lead #{lead_id} sent", lang)
         return {"ok": True, "message": done}
+
+    async def traced_channel(name: str, sending) -> bool:
+        with tracing.tracer.start_as_current_span(f"deliver_lead {name}", attributes={"app.channel": name}) as span:
+            ok = bool(await sending)
+            span.set_attribute("app.delivered", ok)
+            return ok
 
     @app.get("/embed/{site_id}", response_class=PlainTextResponse)
     async def embed(site_id: str, request: Request):

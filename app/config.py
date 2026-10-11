@@ -45,6 +45,7 @@ class Settings:
     fl_interval: int = 180               # seconds between polls
     fl_daily_max: int = 15               # alerts per day at most
     fl_min_fit: int = 6                  # model's fit score (0–10) needed to send an alert
+    eval_on_deploy: bool = False         # run evals/<site>.json against the live model after a behaviour change
 
     @property
     def llm_enabled(self) -> bool:
@@ -73,6 +74,7 @@ class Settings:
             fl_interval=int(e("FL_INTERVAL", "180")),
             fl_daily_max=int(e("FL_DAILY_MAX", "15")),
             fl_min_fit=int(e("FL_MIN_FIT", "6")),
+            eval_on_deploy=e("EVAL_ON_DEPLOY", "1") != "0",
         )
 
 

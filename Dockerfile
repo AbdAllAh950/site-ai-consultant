@@ -6,6 +6,7 @@ COPY app ./app
 COPY widget ./widget
 COPY demo ./demo
 COPY sites ./sites
+COPY evals ./evals
 ENV SITES_DIR=/srv/sites DB_PATH=/data/consultant.sqlite
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

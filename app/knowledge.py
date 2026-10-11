@@ -64,12 +64,26 @@ class KnowledgeBase:
         scored.sort(key=lambda pair: pair[0], reverse=True)
         return scored[:k]
 
-    def context_for(self, query: str) -> str:
+    def select(self, query: str) -> tuple[str, list[tuple[float, Chunk]], bool]:
+        """(context for the model, ranked hits, whether the whole base was sent)."""
+        hits = self.search(query)
         full = "\n\n".join([self.intro, *(c.text for c in self.chunks)]).strip()
         if len(full) <= WHOLE_KB_LIMIT:
-            return full
-        picked = [c.text for _, c in self.search(query)]
-        return "\n\n".join([self.intro, *picked]).strip()
+            return full, hits, True
+        if not hits:
+            # no word in common — typically a visitor writing in English or Arabic to a Russian base:
+            # better as many sections as fit than the intro alone (evals/: keyword hit@3 is 0 for en/ar)
+            parts, size = [self.intro], len(self.intro)
+            for chunk in self.chunks:
+                if size + len(chunk.text) + 2 > WHOLE_KB_LIMIT:
+                    break
+                parts.append(chunk.text)
+                size += len(chunk.text) + 2
+            return "\n\n".join(parts).strip(), hits, False
+        return "\n\n".join([self.intro, *(c.text for _, c in hits)]).strip(), hits, False
+
+    def context_for(self, query: str) -> str:
+        return self.select(query)[0]
 
     def best_answer(self, query: str, min_score: float = 0.5) -> str | None:
         hits = self.search(query, k=1)
