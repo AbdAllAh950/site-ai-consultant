@@ -1,6 +1,18 @@
-# AI-консультант для сайта · AI chat consultant for websites
+# AI chat consultant for websites · AI-консультант для сайта
 
-🇷🇺 [Русский](#русский) · 🇬🇧 [English](#english)
+🇬🇧 [English](#english) · 🇷🇺 [Русский](#русский)
+
+An LLM agent that answers a business's website visitors from its own knowledge base, decides when to offer a lead form, and delivers a summarized lead to Telegram, MAX, email or any CRM. FastAPI, OpenAI-compatible LLM API (YandexGPT), Docker, 78 tests.
+
+**Engineering highlights**
+
+| | |
+|---|---|
+| 🔭 **Tracing** — OpenTelemetry, GenAI semantic conventions | [`app/tracing.py`](app/tracing.py): `invoke_agent` → `retrieval` → `chat <model>` spans with provider, model, tokens, finish reason, latency, `error.type`; visitor text kept out of traces by default |
+| 🧪 **Evals** — 20 cases in Russian, English, Arabic | [`app/evals.py`](app/evals.py), [`evals/`](evals/zeleny-kontur.json): retrieval hit@1/hit@3/MRR per language; live behaviour checks incl. **grounding** (every number in a reply must exist in the knowledge base); re-run automatically after each behaviour-changing deploy |
+| 🔎 **What evals found** | keyword retrieval: hit@3 = 100% for Russian questions, 0% for English/Arabic (Russian knowledge base) → fallback for large bases; multilingual embeddings next |
+| 🔌 **MCP server** | [`app/mcp_server.py`](app/mcp_server.py): read-only tools (`list_sites`, `search_knowledge`, `ask_consultant`, `evaluate_retrieval`) + `kb://{site}` resource, least privilege, tested via a real MCP client session |
+| ✅ **Tests** | [`tests/`](tests): API, tracing, evals, MCP, and Playwright end-to-end runs against the real server |
 
 ![Демо: ландшафтное бюро с AI-консультантом](assets/demo-desktop.png)
 
